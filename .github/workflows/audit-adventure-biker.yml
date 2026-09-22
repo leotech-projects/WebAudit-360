@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - ".github/workflows/audit-adventure-biker.yml"\n      - "webaudit360.py"
+      - ".github/workflows/audit-adventure-biker.yml"
+      - "webaudit360.py"
   workflow_dispatch:
 
 permissions:
