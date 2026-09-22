@@ -410,7 +410,7 @@ class WebAudit360:
         payload={
             "meta":{
                 "tool":"WebAudit 360",
-                "version":"1.1.0",
+                "version":"1.1.1",
                 "base_url":self.base_url,
                 "started_utc":self.started.isoformat(),
                 "finished_utc":dt.datetime.now(dt.timezone.utc).isoformat(),
