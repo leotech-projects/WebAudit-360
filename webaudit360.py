@@ -208,8 +208,30 @@ class WebAudit360:
 
         return result, discovered
 
+    def sitemap_urls(self) -> list[str]:
+        """Lê sitemap.xml para descobrir rotas de SPAs e páginas não presentes no HTML inicial."""
+        url=f"{self.base.scheme}://{self.base.netloc}/sitemap.xml"
+        try:
+            r=self.session.get(url,timeout=self.timeout,allow_redirects=True)
+            if r.status_code >= 400:
+                return []
+            soup=BeautifulSoup(r.text,"xml")
+            urls=[]
+            for loc in soup.find_all("loc"):
+                u=self.normalize(loc.get_text(strip=True), self.base_url)
+                if u and self.same_site(u):
+                    urls.append(u)
+            return list(dict.fromkeys(urls))
+        except requests.RequestException:
+            return []
+
     def crawl(self):
-        queue=deque([self.base_url])
+        seeds=[self.base_url]
+        sitemap=self.sitemap_urls()
+        if sitemap:
+            print(f"[sitemap] {len(sitemap)} URL(s) pública(s) descoberta(s)")
+            seeds.extend(sitemap)
+        queue=deque(dict.fromkeys(seeds))
         seen=set()
         while queue and len(seen)<self.max_pages:
             url=queue.popleft()
@@ -388,7 +410,7 @@ class WebAudit360:
         payload={
             "meta":{
                 "tool":"WebAudit 360",
-                "version":"1.0.0",
+                "version":"1.1.0",
                 "base_url":self.base_url,
                 "started_utc":self.started.isoformat(),
                 "finished_utc":dt.datetime.now(dt.timezone.utc).isoformat(),
