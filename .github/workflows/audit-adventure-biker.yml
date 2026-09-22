@@ -1,0 +1,95 @@
+name: Audit Adventure Biker BR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/audit-adventure-biker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run WebAudit 360
+        run: |
+          python webaudit360.py https://adventurebikerbr.com/ --max-pages 150 --browser --output audit-output
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run Lighthouse mobile
+        continue-on-error: true
+        run: |
+          npx --yes lighthouse@12 https://adventurebikerbr.com/ \
+            --output=json --output=html \
+            --output-path=./audit-output/lighthouse-mobile \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --form-factor=mobile \
+            --screenEmulation.mobile=true \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage"
+
+      - name: Run Lighthouse desktop
+        continue-on-error: true
+        run: |
+          npx --yes lighthouse@12 https://adventurebikerbr.com/ \
+            --output=json --output=html \
+            --output-path=./audit-output/lighthouse-desktop \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --preset=desktop \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage"
+
+      - name: Summarize Lighthouse scores
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          out = Path("audit-output")
+          rows=[]
+          for label,name in [("mobile","lighthouse-mobile.report.json"),("desktop","lighthouse-desktop.report.json")]:
+              p=out/name
+              if not p.exists():
+                  continue
+              d=json.loads(p.read_text())
+              cats=d.get("categories",{})
+              rows.append({
+                  "profile":label,
+                  **{k:round((cats.get(k,{}).get("score") or 0)*100) for k in ["performance","accessibility","best-practices","seo"]},
+                  "fcp_ms": d.get("audits",{}).get("first-contentful-paint",{}).get("numericValue"),
+                  "lcp_ms": d.get("audits",{}).get("largest-contentful-paint",{}).get("numericValue"),
+                  "cls": d.get("audits",{}).get("cumulative-layout-shift",{}).get("numericValue"),
+                  "tbt_ms": d.get("audits",{}).get("total-blocking-time",{}).get("numericValue"),
+                  "speed_index_ms": d.get("audits",{}).get("speed-index",{}).get("numericValue"),
+              })
+          (out/"lighthouse-summary.json").write_text(json.dumps(rows,indent=2,ensure_ascii=False))
+          print(json.dumps(rows,indent=2,ensure_ascii=False))
+          PY
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adventure-biker-audit
+          path: audit-output/
+          retention-days: 30
