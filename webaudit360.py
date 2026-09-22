@@ -215,10 +215,10 @@ class WebAudit360:
             r=self.session.get(url,timeout=self.timeout,allow_redirects=True)
             if r.status_code >= 400:
                 return []
-            soup=BeautifulSoup(r.text,"xml")
             urls=[]
-            for loc in soup.find_all("loc"):
-                u=self.normalize(loc.get_text(strip=True), self.base_url)
+            for raw in re.findall(r"<loc>\\s*(.*?)\\s*</loc>", r.text, flags=re.I | re.S):
+                loc=raw.strip().replace("&amp;", "&")
+                u=self.normalize(loc, self.base_url)
                 if u and self.same_site(u):
                     urls.append(u)
             return list(dict.fromkeys(urls))
@@ -410,7 +410,7 @@ class WebAudit360:
         payload={
             "meta":{
                 "tool":"WebAudit 360",
-                "version":"1.1.1",
+                "version":"1.1.2",
                 "base_url":self.base_url,
                 "started_utc":self.started.isoformat(),
                 "finished_utc":dt.datetime.now(dt.timezone.utc).isoformat(),
