@@ -216,7 +216,7 @@ class WebAudit360:
             if r.status_code >= 400:
                 return []
             urls=[]
-            for raw in re.findall(r"<loc>\\s*(.*?)\\s*</loc>", r.text, flags=re.I | re.S):
+            for raw in re.findall(r"<loc>\s*(.*?)\s*</loc>", r.text, flags=re.I | re.S):
                 loc=raw.strip().replace("&amp;", "&")
                 u=self.normalize(loc, self.base_url)
                 if u and self.same_site(u):
@@ -410,7 +410,7 @@ class WebAudit360:
         payload={
             "meta":{
                 "tool":"WebAudit 360",
-                "version":"1.1.2",
+                "version":"1.1.3",
                 "base_url":self.base_url,
                 "started_utc":self.started.isoformat(),
                 "finished_utc":dt.datetime.now(dt.timezone.utc).isoformat(),
